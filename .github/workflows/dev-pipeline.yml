@@ -42,12 +42,12 @@ jobs:
 
       # Step 3: Install dependencies
       - name: Install dependencies
-        working-directory: ./dev
+        working-directory: ./app
         run: npm install
 
       # Step 4: Build the project
       - name: Build the project
-        working-directory: ./dev
+        working-directory: ./app
         run: npm run build
 
       # Step 5: Trigger Pulumi Deployment
