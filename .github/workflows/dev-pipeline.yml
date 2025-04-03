@@ -1,0 +1,118 @@
+name: GitHub Actions Demo
+run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'devops/**'
+jobs:
+  # Explore-GitHub-Actions:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+  #     - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+  #     - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+  build-and-deploy:
+      runs-on: ubuntu-latest
+      steps:
+      # Step 1: Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # Identify changed files
+      - name: Check for changes in devops folder
+        id: check-devops-changes
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD || echo "")
+          echo "Changed files: $CHANGED_FILES"
+          if echo "$CHANGED_FILES" | grep "^devops/" > /devops/null; then
+            echo "CHANGES_DETECTED=true" >> $GITHUB_ENV
+          else
+            echo "CHANGES_DETECTED=false" >> $GITHUB_ENV
+          fi
+
+      # Step 2: Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16' # Use the Node.js version your project requires
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        working-directory: ./dev
+        run: npm install
+
+      # Step 4: Build the project
+      - name: Build the project
+        working-directory: ./dev
+        run: npm run build
+
+      # Step 5: Trigger Pulumi Deployment
+      - name: Trigger Pulumi Preview
+        id: preview
+        run: |
+          RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/cicd-pipeline-test/dev/deployments" \
+            -H "Authorization: token ${{ secrets.PULUMI_ACCESS_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg stackName '${{ secrets.STACK_NAME }}' \
+              '{
+                "operation": "preview",
+                "operationContext": {
+                  "preRunCommands": [
+                    "pulumi stack select \($stackName)",
+                    "pulumi config refresh --force",
+                    "pulumi config refresh --force"
+                  ]
+                }
+              }')")
+          
+          DEPLOYMENT_ID=$(echo "$RESPONSE" | jq -r '.id')
+          echo "DEPLOYMENT_ID=$DEPLOYMENT_ID" >> $GITHUB_ENV
+
+      # Step 6: Check Deployment Status 1
+      - name: Monitor Pulumi Deployment
+        run: |
+          STATUS="pending"
+          while [[ "$STATUS" == "pending" || "$STATUS" == "running" ]]; do
+            sleep 15
+            RESPONSE=$(curl -s -X GET \
+              -H "Authorization: token ${{ secrets.PULUMI_ACCESS_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              --location "https://api.pulumi.com/api/stacks/aenetworks/cicd-pipeline-test/dev/deployments/$DEPLOYMENT_ID")
+            STATUS=$(echo "$RESPONSE" | jq -r '.status')
+            echo "Current Status: $STATUS"
+          done
+
+          DEPLOYMENT_STATUS=$(echo "$RESPONSE" | jq -r '.status')
+          echo "DEPLOYMENT_STATUS=$DEPLOYMENT_STATUS" >> $GITHUB_ENV
+          
+          if [[ "$STATUS" == "succeeded" ]]; then
+            echo "✅ Deployment succeeded!"
+          else
+            echo "❌ Deployment failed!"
+            exit 0
+          fi
+
+      # Step 7: Trigger Pulumi Deployment
+      - name: Trigger Pulumi Update
+        if: env.DEPLOYMENT_STATUS == 'succeeded'
+        id: update
+        run: |
+          RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/cicd-pipeline-test/dev/deployments" \
+            -H "Authorization: token ${{ secrets.PULUMI_ACCESS_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg stackName '${{ secrets.STACK_NAME }}' \
+              '{
+                "operation": "update",
+                "operationContext": {
+                  "preRunCommands": [
+                    "pulumi stack select \($stackName)",
+                    "pulumi config refresh --force",
+                    "pulumi config refresh --force"
+                  ]
+                }
+              }')")
+     
