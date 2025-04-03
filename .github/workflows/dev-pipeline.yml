@@ -60,6 +60,12 @@ jobs:
             -d "$(jq -n --arg stackName '${{ secrets.STACK_NAME }}' \
               '{
                 "operation": "preview",
+                "sourceContext": {
+                  "git": {
+                    "repoDir": "devops/experimental/cf-html-website"
+                    "branch" "dev"
+                  }
+                },
                 "operationContext": {
                   "preRunCommands": [
                     "pulumi stack select \($stackName)",
@@ -107,6 +113,12 @@ jobs:
             -d "$(jq -n --arg stackName '${{ secrets.STACK_NAME }}' \
               '{
                 "operation": "update",
+                "sourceContext": {
+                  "git": {
+                    "repoDir": "devops/experimental/cf-html-website"
+                    "branch" "dev"
+                  }
+                },
                 "operationContext": {
                   "preRunCommands": [
                     "pulumi stack select \($stackName)",
