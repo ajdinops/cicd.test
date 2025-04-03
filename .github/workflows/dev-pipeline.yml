@@ -62,7 +62,7 @@ jobs:
                 "operation": "preview",
                 "sourceContext": {
                   "git": {
-                    "repoDir": "devops/experimental/cf-html-website"
+                    "repoDir": "devops/experimental/cf-html-website",
                     "branch": "dev"
                   }
                 },
@@ -115,7 +115,7 @@ jobs:
                 "operation": "update",
                 "sourceContext": {
                   "git": {
-                    "repoDir": "devops/experimental/cf-html-website"
+                    "repoDir": "devops/experimental/cf-html-website",
                     "branch": "dev"
                   }
                 },
