@@ -1,0 +1,622 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudWatch Dashboard for stacks based on fargate-service-alb.yaml'
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: 'Parent Stacks'
+        Parameters:
+          - ParentClusterStack
+          - ParentServiceStack
+      - Label:
+          default: 'Other Parameters'
+        Parameters:
+          - FastlyServiceId
+Parameters:
+  ParentClusterStack:
+    Description: 'Stack name of parent Cluster stack based on base/fargate-cluster-alb.yaml template.'
+    Type: String
+  ParentServiceStack:
+    Description: 'Stack name of parent Cluster stack based on base/fargate-service-*.yaml template.'
+    Type: String
+  FastlyServiceId:
+    Description: 'Fastly Service Id fronting the ECS service.'
+    Type: String
+Resources:
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Ref 'AWS::StackName'
+      DashboardBody: !Sub
+        - |
+          {
+            "start": "-PT3H",
+            "periodOverride": "inherit",
+            "widgets": [
+              {
+                "height": 2,
+                "width": 24,
+                "y": 0,
+                "x": 0,
+                "type": "text",
+                "properties": {
+                  "markdown": "# ${AWS::StackName}\n[CloudFormation Stack](https://console.aws.amazon.com/cloudformation/home?region=${AWS::Region}#/stacks?filteringText=${AWS::StackName}&filteringStatus=active&viewNested=true&hideStacks=false) ? [Dashboard Body Structure and Syntax](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/CloudWatch-Dashboard-Body-Structure.html) ? [CloudWatch metrics for your Application Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-cloudwatch-metrics.html) ? [Amazon ECS Container Insights Metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-metrics-ECS.html)"
+                }
+              },
+              {
+                "height": 1,
+                "width": 24,
+                "y": 2,
+                "x": 0,
+                "type": "text",
+                "properties": {
+                  "markdown": "\n### AWS Origin\n"
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 3,
+                "x": 0,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ApplicationELB",
+                      "RequestCount",
+                      "LoadBalancer",
+                      "${LoadBalancerFullName}",
+                      "TargetGroup",
+                      "${TargetGroupFullName}",
+                      {
+                        "yAxis": "left"
+                      }
+                    ],
+                    [
+                      ".",
+                      "IPv6RequestCount",
+                      ".",
+                      ".",
+                      ".",
+                      ".",
+                      {
+                        "yAxis": "left"
+                      }
+                    ]
+                  ],
+                  "title": "RequestCount",
+                  "stat": "Sum",
+                  "period": 1,
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "yAxis": {
+                    "left": {
+                      "min": 0
+                    }
+                  }
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 3,
+                "x": 6,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ApplicationELB",
+                      "HTTPCode_Target_2XX_Count",
+                      "TargetGroup",
+                      "${TargetGroupFullName}",
+                      "LoadBalancer",
+                      "${LoadBalancerFullName}",
+                      {
+                        "color": "#2ca02c"
+                      }
+                    ],
+                    [
+                      ".",
+                      "HTTPCode_Target_4XX_Count",
+                      "LoadBalancer",
+                      "${LoadBalancerFullName}",
+                      "TargetGroup",
+                      "${TargetGroupFullName}",
+                      {
+                        "yAxis": "left",
+                        "color": "#9467bd"
+                      }
+                    ],
+                    [
+                      ".",
+                      "HTTPCode_Target_5XX_Count",
+                      ".",
+                      ".",
+                      ".",
+                      ".",
+                      {
+                        "yAxis": "left",
+                        "color": "#d62728"
+                      }
+                    ]
+                  ],
+                  "title": "2XX, 4XX, 5XX",
+                  "stat": "Sum",
+                  "period": 60,
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "yAxis": {
+                    "left": {
+                      "min": 0,
+                      "showUnits": false
+                    }
+                  }
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 3,
+                "x": 18,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ApplicationELB",
+                      "HealthyHostCount",
+                      "TargetGroup",
+                      "${TargetGroupFullName}",
+                      "LoadBalancer",
+                      "${LoadBalancerFullName}",
+                      {
+                        "yAxis": "right",
+                        "stat": "Average"
+                      }
+                    ],
+                    [
+                      ".",
+                      "RequestCountPerTarget",
+                      ".",
+                      ".",
+                      ".",
+                      "."
+                    ],
+                    [
+                      ".",
+                      "RequestCount",
+                      ".",
+                      ".",
+                      ".",
+                      "."
+                    ]
+                  ],
+                  "title": "Request Count Per Target",
+                  "stat": "Sum",
+                  "period": 60,
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "yAxis": {
+                    "left": {
+                      "min": 0
+                    }
+                  }
+                }
+              },
+              {
+                "height": 1,
+                "width": 24,
+                "y": 9,
+                "x": 0,
+                "type": "text",
+                "properties": {
+                  "markdown": "\n### Fastly Edge\n"
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 10,
+                "x": 0,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "aetnd/FastlyMetrics",
+                      "RequestCount",
+                      "ServiceId",
+                      "${FastlyServiceId}"
+                    ]
+                  ],
+                  "title": "RequestCount",
+                  "stat": "Sum",
+                  "period": 60,
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "yAxis": {
+                    "left": {
+                      "min": 0
+                    }
+                  }
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 10,
+                "x": 18,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      {
+                        "expression": "100*(m1/m2)",
+                        "label": "Expression1",
+                        "id": "e1"
+                      }
+                    ],
+                    [
+                      "aetnd/FastlyMetrics",
+                      "RequestIsHitCount",
+                      "ServiceId",
+                      "${FastlyServiceId}",
+                      {
+                        "id": "m1",
+                        "visible": false
+                      }
+                    ],
+                    [
+                      ".",
+                      "RequestCount",
+                      ".",
+                      ".",
+                      {
+                        "id": "m2",
+                        "visible": false
+                      }
+                    ]
+                  ],
+                  "title": "Cache Hit Ratio",
+                  "stat": "Sum",
+                  "period": 60,
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "yAxis": {
+                    "left": {
+                      "min": 0
+                    }
+                  }
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 10,
+                "x": 12,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "aetnd/FastlyMetrics",
+                      "RequestLatency",
+                      "ServiceId",
+                      "${FastlyServiceId}",
+                      {
+                        "yAxis": "left"
+                      }
+                    ],
+                    [
+                      "...",
+                      {
+                        "yAxis": "left",
+                        "stat": "p90"
+                      }
+                    ],
+                    [
+                      "...",
+                      {
+                        "yAxis": "left",
+                        "stat": "p95"
+                      }
+                    ]
+                  ],
+                  "title": "Response Time",
+                  "stat": "Average",
+                  "period": 60,
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}"
+                }
+              },
+              {
+                "height": 1,
+                "width": 24,
+                "y": 16,
+                "x": 0,
+                "type": "text",
+                "properties": {
+                  "markdown": "\n\n"
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 17,
+                "x": 0,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ECS",
+                      "CPUUtilization",
+                      "ServiceName",
+                      "${ServiceName}",
+                      "ClusterName",
+                      "${ClusterName}",
+                      {
+                        "color": "#1f77b4"
+                      }
+                    ]
+                  ],
+                  "title": "AVG CPU",
+                  "stat": "Average",
+                  "period": 60,
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "yAxis": {
+                    "left": {
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  "annotations": {
+                    "horizontal": [
+                      {
+                        "color": "#2ca02c",
+                        "value": 30
+                      },
+                      {
+                        "color": "#ff7f0e",
+                        "value": 60
+                      },
+                      {
+                        "color": "#d62728",
+                        "value": 90
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 17,
+                "x": 12,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "ECS/ContainerInsights",
+                      "PendingTaskCount",
+                      "ServiceName",
+                      "${ServiceName}",
+                      "ClusterName",
+                      "${ClusterName}",
+                      {
+                        "color": "#ff7f0e"
+                      }
+                    ],
+                    [
+                      ".",
+                      "RunningTaskCount",
+                      ".",
+                      ".",
+                      ".",
+                      ".",
+                      {
+                        "color": "#2ca02c"
+                      }
+                    ],
+                    [
+                      ".",
+                      "DesiredTaskCount",
+                      ".",
+                      ".",
+                      ".",
+                      ".",
+                      {
+                        "color": "#1f77b4"
+                      }
+                    ]
+                  ],
+                  "title": "Task Count",
+                  "stat": "Sum",
+                  "period": 60,
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "yAxis": {
+                    "left": {
+                      "min": 0
+                    }
+                  }
+                }
+              },
+              {
+                "height": 16,
+                "width": 24,
+                "y": 23,
+                "x": 0,
+                "type": "log",
+                "properties": {
+                  "title": "Service Logs",
+                  "view": "table",
+                  "region": "${AWS::Region}",
+                  "query": "SOURCE '${LogGroupName}' | fields @timestamp, @message\n| sort @timestamp desc\n| limit 50"
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 17,
+                "x": 6,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ECS",
+                      "MemoryUtilization",
+                      "ServiceName",
+                      "${ServiceName}",
+                      "ClusterName",
+                      "${ClusterName}"
+                    ]
+                  ],
+                  "title": "AVG Memory",
+                  "stat": "Average",
+                  "period": 60,
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "yAxis": {
+                    "left": {
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  "annotations": {
+                    "horizontal": [
+                      {
+                        "color": "#2ca02c",
+                        "value": 30
+                      },
+                      {
+                        "color": "#ff7f0e",
+                        "value": 60
+                      },
+                      {
+                        "color": "#d62728",
+                        "value": 90
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 10,
+                "x": 6,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "aetnd/FastlyMetrics",
+                      "HTTPCode_2XX_Count",
+                      "ServiceId",
+                      "${FastlyServiceId}",
+                      {
+                        "color": "#2ca02c"
+                      }
+                    ],
+                    [
+                      ".",
+                      "HTTPCode_4XX_Count",
+                      ".",
+                      ".",
+                      {
+                        "yAxis": "left",
+                        "color": "#9467bd"
+                      }
+                    ],
+                    [
+                      ".",
+                      "HTTPCode_5XX_Count",
+                      ".",
+                      ".",
+                      {
+                        "yAxis": "left",
+                        "color": "#d62728"
+                      }
+                    ]
+                  ],
+                  "title": "2XX, 4XX, 5XX",
+                  "stat": "Sum",
+                  "period": 60,
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}"
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 3,
+                "x": 12,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ApplicationELB",
+                      "TargetResponseTime",
+                      "LoadBalancer",
+                      "${LoadBalancerFullName}",
+                      "TargetGroup",
+                      "${TargetGroupFullName}",
+                      {
+                        "yAxis": "left",
+                        "stat": "Average"
+                      }
+                    ],
+                    [
+                      "...",
+                      {
+                        "yAxis": "left",
+                        "stat": "p95"
+                      }
+                    ],
+                    [
+                      "...",
+                      {
+                        "yAxis": "left"
+                      }
+                    ]
+                  ],
+                  "title": "ResponseTime",
+                  "stat": "p99",
+                  "period": 1,
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "yAxis": {
+                    "left": {
+                      "min": 0
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        - ClusterName: {'Fn::ImportValue': !Sub '${ParentClusterStack}-Cluster'}
+          LoadBalancerFullName: {'Fn::ImportValue': !Sub '${ParentClusterStack}-LoadBalancerFullName'}
+          TargetGroupFullName: {'Fn::ImportValue': !Sub '${ParentServiceStack}-TargetGroupFullName'}
+          ServiceName: {'Fn::ImportValue': !Sub '${ParentServiceStack}-Service'}
+          LogGroupName: {'Fn::ImportValue': !Sub '${ParentServiceStack}-LogGroupName'}
+Outputs:
+  TemplateID:
+    Description: 'Template Id.'
+    Value: 'base/dashboard-fargate-service-alb.yaml'
+  TemplateVersion:
+    Description: 'Template Version.'
+    Value: '__VERSION__'
+  StackName:
+    Description: 'Stack name.'
+    Value: !Sub '${AWS::StackName}'
+  DashboardUrl:
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${AWS::StackName}'

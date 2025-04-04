@@ -1,0 +1,109 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM resources for Watch WordPress stack'
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: 'Stack Parameters'
+        Parameters:
+          - Environment
+Parameters:
+  Environment:
+    Description: 'Environment'
+    Type: String
+    AllowedValues: ['dev', 'qa', 'prod']
+Resources:
+  Policy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:GetBucketLocation'
+              - 's3:ListBucket'
+            Resource:
+              - 'arn:aws:s3:::prod-wp-watch-aetnd-com'
+              - 'arn:aws:s3:::qa-wp-watch-aetnd-com'
+              - 'arn:aws:s3:::dev-wp-watch-aetnd-com'
+              - 'arn:aws:s3:::prod.cdn.watch.aetnd.com'
+              - 'arn:aws:s3:::qa.cdn.watch.aetnd.com'
+              - 'arn:aws:s3:::dev.cdn.watch.aetnd.com'
+              - 'arn:aws:s3:::mvpdmanager.video.aetndigital.com'
+          - Effect: Allow
+            Action:
+              - 's3:DeleteObject*'
+              - 's3:GetObject*'
+              - 's3:PutObject*'
+            Resource:
+              - 'arn:aws:s3:::prod-wp-watch-aetnd-com/*'
+              - 'arn:aws:s3:::qa-wp-watch-aetnd-com/*'
+              - 'arn:aws:s3:::dev-wp-watch-aetnd-com/*'
+              - 'arn:aws:s3:::prod.cdn.watch.aetnd.com/*'
+              - 'arn:aws:s3:::qa.cdn.watch.aetnd.com/*'
+              - 'arn:aws:s3:::dev.cdn.watch.aetnd.com/*'
+              - 'arn:aws:s3:::mvpdmanager.video.aetndigital.com/*'
+          - Effect: Allow
+            Action:
+              - 'sqs:ListQueues'
+            Resource:
+              - '*'
+          - Effect: Allow
+            Action:
+              - 'sqs:ChangeMessageVisibility'
+              - 'sqs:DeleteMessage'
+              - 'sqs:GetQueueAttributes'
+              - 'sqs:GetQueueUrl'
+              - 'sqs:PurgeQueue'
+              - 'sqs:ReceiveMessage'
+              - 'sqs:SendMessage'
+            Resource:
+              - !Sub 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${Environment}-watch-wp-sqs-Queue-*'
+          - Effect: Allow
+            Action:
+              - 'ssm:DescribeParameters'
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - 'ssm:DeleteParameter*'
+              - 'ssm:GetParameter*'
+              - 'ssm:PutParameter'
+            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Environment}/aetn.watch.wp/*'
+          - Effect: Allow
+            Action:
+              - 'secretsmanager:GetRandomPassword'
+              - 'secretsmanager:ListSecrets'
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - 'secretsmanager:DeleteSecret'
+              - 'secretsmanager:DescribeSecret'
+              - 'secretsmanager:GetSecretValue'
+              - 'secretsmanager:ListSecretVersionIds'
+              - 'secretsmanager:PutSecretValue'
+              - 'secretsmanager:RestoreSecret'
+              - 'secretsmanager:UpdateSecret'
+            Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${Environment}/aetn.watch.wp/*'
+          - Effect: Allow
+            Action:
+              - 'kms:Decrypt'
+              - 'kms:DescribeKey'
+              - 'kms:GenerateDataKey'
+            Resource: !Sub 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/${Environment}-devops-sops-kms'
+Outputs:
+  TemplateID:
+    Description: 'Template Id.'
+    Value: 'base/iam-watch-wp.yaml'
+  TemplateVersion:
+    Description: 'Template Version.'
+    Value: '__VERSION__'
+  StackName:
+    Description: 'Stack name.'
+    Value: !Sub '${AWS::StackName}'
+  PolicyArn:
+    Value: !Ref Policy
+    Description: 'Policy ARN'
+    Export:
+      Name: !Sub '${AWS::StackName}-PolicyArn'

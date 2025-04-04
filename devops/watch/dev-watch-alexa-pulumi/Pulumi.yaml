@@ -1,0 +1,3 @@
+name: watch-alexa
+runtime: nodejs
+description: AETN Production Watch Alexa rewritten in Pulumi, including essential resources from Terraform
