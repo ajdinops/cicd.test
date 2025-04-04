@@ -64,14 +64,14 @@ jobs:
                     "repoDir": "devops/watch/dev-watch-alexa-pulumi",
                     "branch": "dev"
                   }
-                },
-                "operationContext": {
-                  "preRunCommands": [
-                    "pulumi stack select \($stackName)",
-                    "pulumi config refresh --force",
-                    "pulumi config refresh --force"
-                  ]
                 }
+                # "operationContext": {
+                #   "preRunCommands": [
+                #     "pulumi stack select \($stackName)",
+                #     "pulumi config refresh --force",
+                #     "pulumi config refresh --force"
+                #   ]
+                # }
               }')")
           
           DEPLOYMENT_ID=$(echo "$RESPONSE" | jq -r '.id')
@@ -117,13 +117,13 @@ jobs:
                     "repoDir": "devops/watch/dev-watch-alexa-pulumi",
                     "branch": "dev"
                   }
-                },
-                "operationContext": {
-                  "preRunCommands": [
-                    "pulumi stack select \($stackName)",
-                    "pulumi config refresh --force",
-                    "pulumi config refresh --force"
-                  ]
                 }
+                # "operationContext": {
+                #   "preRunCommands": [
+                #     "pulumi stack select \($stackName)",
+                #     "pulumi config refresh --force",
+                #     "pulumi config refresh --force"
+                #   ]
+                # }
               }')")
      
