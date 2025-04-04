@@ -8,3 +8,5 @@ config:
     secure: AAABAMOSY4/10k5TaMLtcVusCnM8p++Zya91aHgDfcCNTkrui788WqAfA15Gcof4r+InqNskghug+NyhSgn8OQ==
   datadog:appKey:
     secure: AAABAC3DepKY0C0bbxmzWW3nV8y4baP9MS9jkEVcoGc8d3afX+ikwCicgBPpUKBgw835iLk3EifYYcq+wZMwb+VGCs267E1o
+  watch-alexa:applicationID: alexa-test
+  watch-alexa:role: alexa-test-role
