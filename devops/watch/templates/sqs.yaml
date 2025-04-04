@@ -1,0 +1,268 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SQS Queue'
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: 'Parent Stacks'
+        Parameters:
+          - ParentAlertStack
+          - ParentKmsKeyStack
+      - Label:
+          default: 'SQS Parameters'
+        Parameters:
+          - QueueName
+          - FifoQueue
+          - MessageRetentionPeriod
+          - MaximumMessageSize
+          - MaxReceiveCount
+          - DelaySeconds
+          - ReceiveMessageWaitTime
+          - VisibilityTimeout
+          - ContentBasedDeduplication
+      - Label:
+          default: 'Cloudwatch Alarm Parameters'
+        Parameters:
+          - AgeOfOldestMessageAlarmThreshold
+          - AgeOfOldestMessageAlarmPeriod
+          - AgeOfOldestMessageAlarmEvaluationPeriods
+          - NumberMessageVisibleAlarmThreshold
+          - NumberMessageVisibleAlarmPeriod
+          - NumberMessageVisibleAlarmEvaluationPeriods
+          - DeadLetterMessagesReceivedAlarmThreshold
+          - DeadLetterMessagesReceivedAlarmPeriod
+          - DeadLetterMessagesReceivedAlarmEvaluationPeriods
+Parameters:
+  ParentAlertStack:
+    Description: 'Optional but recommended stack name of parent alert stack based on operations/alert.yaml template.'
+    Type: String
+    Default: ''
+  ParentKmsKeyStack:
+    Description: 'Optional but recommended stack name of parent KMS key stack based on security/kms-key.yaml template.'
+    Type: String
+    Default: ''
+  QueueName:
+    Description: 'Optional name of SQS Queue (Usually leave blank to let Cloudformation pick)'
+    Type: String
+    Default: ''
+  FifoQueue:
+    Description: 'Standard or FIFO queue'
+    Type: String
+    Default: 'standard'
+    AllowedValues: ['standard', 'fifo']
+  MessageRetentionPeriod:
+    Description: 'Number of seconds that Amazon SQS retains a message.'
+    Type: Number
+    Default: 345600
+    MinValue: 60
+    MaxValue: 1209600
+  MaximumMessageSize:
+    Description: 'How many bytes that a message can contain before Amazon SQS rejects it.'
+    Type: Number
+    Default: 262144
+    MinValue: 1024
+    MaxValue: 262144
+  MaxReceiveCount:
+    Description: 'Max number of times a message is delivered before being moved to the dead-letter queue. (0 = no limit, until message expiration)'
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 1000
+  DelaySeconds:
+    Description: 'Time in seconds for which the delivery of all messages in the queue is delayed.'
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 900
+  ReceiveMessageWaitTime:
+    Description: 'Number of seconds the ReceiveMessage call waits until a message is available.'
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 20
+  VisibilityTimeout:
+    Description: 'Number of seconds a message will be unavailable after being delivered.'
+    Type: Number
+    Default: 30
+    MinValue: 0
+    MaxValue: 43200
+  ContentBasedDeduplication:
+    Description: 'Enable content-based deduplication for FIFO queues.'
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+  AgeOfOldestMessageAlarmThreshold:
+    Description: 'Age Of Oldest Message Threshold in Seconds'
+    Type: Number
+    Default: 30
+  AgeOfOldestMessageAlarmPeriod:
+    Description: 'Age Of Oldest Message time period in Seconds'
+    Type: Number
+    Default: 60
+  AgeOfOldestMessageAlarmEvaluationPeriods:
+    Description: 'Age Of Oldest Message no. of EvaluationPeriods to breach'
+    Type: Number
+    Default: 5
+  NumberMessageVisibleAlarmThreshold:
+    Description: 'Number of Message Visible Threshold in Integer'
+    Type: Number
+    Default: 10
+  NumberMessageVisibleAlarmPeriod:
+    Description: 'Number of Message Visible time period in Seconds'
+    Type: Number
+    Default: 60
+  NumberMessageVisibleAlarmEvaluationPeriods:
+    Description: 'Number of Message Visible no. of EvaluationPeriods to breach'
+    Type: Number
+    Default: 5
+  DeadLetterMessagesReceivedAlarmThreshold:
+    Description: 'Number of Message Visible Threshold in Integer'
+    Type: Number
+    Default: 1
+  DeadLetterMessagesReceivedAlarmPeriod:
+    Description: 'Age Of Oldest Message time period in Seconds'
+    Type: Number
+    Default: 60
+  DeadLetterMessagesReceivedAlarmEvaluationPeriods:
+    Description: 'Age Of Oldest Message no. of EvaluationPeriods to breach'
+    Type: Number
+    Default: 5
+Conditions:
+  HasAlertTopic: !Not [!Equals [!Ref ParentAlertStack, '']]
+  HasKmsKey: !Not [!Equals [!Ref ParentKmsKeyStack, '']]
+  HasQueueName: !Not [!Equals [!Ref QueueName, '']]
+  IsFifo: !Not [!Equals [!Ref FifoQueue, 'standard']]
+  HasRedrivePolicy: !Not [!Equals [!Ref MaxReceiveCount, 0]]
+  HasAlertTopicAndRedrive: !And [!Condition HasAlertTopic, !Condition HasRedrivePolicy]
+Resources:
+  DeadLetterQueue:
+    Condition: HasRedrivePolicy
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: !If [IsFifo, 'true', !Ref AWS::NoValue]
+      QueueName: !If [HasQueueName, !Sub '${QueueName}-DeadLetterQueue', !Ref AWS::NoValue]
+      MessageRetentionPeriod: 1209600
+  Queue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      ContentBasedDeduplication: !If [IsFifo, !Ref ContentBasedDeduplication, !Ref AWS::NoValue]
+      DelaySeconds: !Ref DelaySeconds
+      FifoQueue: !If [IsFifo, 'true', !Ref AWS::NoValue]
+      KmsMasterKeyId: !If [HasKmsKey, {'Fn::ImportValue': !Sub '${ParentKmsKeyStack}-KeyArn'}, !Ref 'AWS::NoValue']
+      MaximumMessageSize: !Ref MaximumMessageSize
+      QueueName: !If [HasQueueName, !Ref QueueName, !Ref AWS::NoValue]
+      MessageRetentionPeriod: !Ref MessageRetentionPeriod
+      ReceiveMessageWaitTimeSeconds: !Ref ReceiveMessageWaitTime
+      RedrivePolicy: !If
+        - HasRedrivePolicy
+        - deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+          maxReceiveCount: !Ref MaxReceiveCount
+        - !Ref AWS::NoValue
+      VisibilityTimeout: !Ref VisibilityTimeout
+  QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref Queue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt Queue.Arn
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'sqs:*'
+            Resource: !GetAtt Queue.Arn
+  AgeOfOldestMessageAlarm:
+    Condition: HasAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: 'The approximate age of the oldest non-deleted message in the queue.'
+      Namespace: 'AWS/SQS'
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt Queue.QueueName
+      Statistic: Maximum
+      Period: !Ref AgeOfOldestMessageAlarmPeriod
+      EvaluationPeriods: !Ref AgeOfOldestMessageAlarmEvaluationPeriods
+      Threshold: !Ref AgeOfOldestMessageAlarmThreshold
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      OKActions:
+        - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      TreatMissingData: notBreaching
+  NumberMessageVisibleAlarm:
+    Condition: HasAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: 'The number of messages available for retrieval from the queue.'
+      Namespace: 'AWS/SQS'
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt Queue.QueueName
+      Statistic: Maximum
+      Period: !Ref NumberMessageVisibleAlarmPeriod
+      EvaluationPeriods: !Ref NumberMessageVisibleAlarmEvaluationPeriods
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref NumberMessageVisibleAlarmThreshold
+      AlarmActions:
+        - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      OKActions:
+        - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      TreatMissingData: notBreaching
+  DeadLetterMessagesReceivedAlarm:
+    Condition: HasAlertTopicAndRedrive
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: 'The number of messages available for retrieval from the deadletter queue.'
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: !Ref DeadLetterMessagesReceivedAlarmPeriod
+      EvaluationPeriods: !Ref DeadLetterMessagesReceivedAlarmEvaluationPeriods
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: !Ref DeadLetterMessagesReceivedAlarmThreshold
+      AlarmActions:
+        - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      OKActions:
+        - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      TreatMissingData: notBreaching
+Outputs:
+  TemplateID:
+    Description: 'Template Id.'
+    Value: 'base/sqs.yaml'
+  TemplateVersion:
+    Description: 'Template Version.'
+    Value: '__VERSION__'
+  StackName:
+    Description: 'Stack name.'
+    Value: !Sub '${AWS::StackName}'
+  QueueUrl:
+    Description: 'URL of the queue.'
+    Value: !Ref Queue
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueUrl'
+  QueueArn:
+    Description: 'ARN of the queue.'
+    Value: !GetAtt Queue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueArn'
+  QueueName:
+    Description: 'Name of the queue.'
+    Value: !GetAtt Queue.QueueName
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueName'
+  QueueConsoleUrl:
+    Description: 'Console URL of the queue.'
+    Value: !Sub 'https://console.aws.amazon.com/sqs/v2/home?region=${AWS::Region}#/queues/https%3A%2F%2Fsqs.${AWS::Region}.amazonaws.com%2F${AWS::AccountId}%2F${Queue.QueueName}'

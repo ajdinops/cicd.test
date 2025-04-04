@@ -1,0 +1,121 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Private Amazon Elastic Container Registry (ECR) Repository'
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: 'Parent Stacks'
+        Parameters:
+          - ParentKmsKeyStack
+Parameters:
+  ParentKmsKeyStack:
+    Description: 'Optional stack name of parent KMS key stack based on security/kms-key.yaml template.'
+    Type: String
+    Default: ''
+Conditions:
+  HasKmsKey: !Not [!Equals [!Ref ParentKmsKeyStack, '']]
+Resources:
+  Repository:
+    Type: AWS::ECR::Repository
+    Properties:
+      EncryptionConfiguration: !If
+        - HasKmsKey
+        - EncryptionType: 'KMS'
+          KmsKey: {'Fn::ImportValue': !Sub '${ParentKmsKeyStack}-KeyArn'}
+        - EncryptionType: 'AES256'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      RepositoryPolicyText:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowOrgPull
+            Effect: Allow
+            Principal: '*'
+            Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:BatchGetImage
+              - ecr:CompleteLayerUpload
+              - ecr:DescribeImageScanFindings
+              - ecr:DescribeImages
+              - ecr:DescribeRepositories
+              - ecr:GetAuthorizationToken
+              - ecr:GetDownloadUrlForLayer
+              - ecr:GetLifecyclePolicy
+              - ecr:GetLifecyclePolicyPreview
+              - ecr:GetRepositoryPolicy
+              - ecr:ListImages
+              - ecr:ListTagsForResource
+            Condition:
+              StringEquals:
+                'aws:PrincipalOrgID': 'o-6kv68yg4ru'
+          - Sid: Admin
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aetn_administrator'
+            Action:
+              - ecr:*
+          - Sid: Ec2ReadOnly
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:BatchGetImage
+              - ecr:DescribeImageScanFindings
+              - ecr:DescribeRepositories
+              - ecr:GetAuthorizationToken
+              - ecr:GetDownloadUrlForLayer
+              - ecr:GetLifecyclePolicy
+              - ecr:GetLifecyclePolicyPreview
+              - ecr:GetRepositoryPolicy
+              - ecr:ListImages
+              - ecr:ListTagsForResource
+          - Sid: CodeBuild
+            Effect: Allow
+            Principal:
+              Service: 'codebuild.amazonaws.com'
+            Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:BatchGetImage
+              - ecr:CompleteLayerUpload
+              - ecr:GetAuthorizationToken
+              - ecr:GetDownloadUrlForLayer
+              - ecr:InitiateLayerUpload
+              - ecr:PutImage
+              - ecr:UploadLayerPart
+          - Sid: LambdaECRImageRetrievalPolicy
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - ecr:BatchGetImage
+              - ecr:DeleteRepositoryPolicy
+              - ecr:GetDownloadUrlForLayer
+              - ecr:GetRepositoryPolicy
+              - ecr:SetRepositoryPolicy
+Outputs:
+  TemplateID:
+    Description: 'Template Id.'
+    Value: 'base/ecr-private-repository.yaml'
+  TemplateVersion:
+    Description: 'Template Version.'
+    Value: '__VERSION__'
+  StackName:
+    Description: 'Stack name.'
+    Value: !Sub '${AWS::StackName}'
+  RepositoryName:
+    Description: 'ECR Repository Name.'
+    Value: !Ref Repository
+    Export:
+      Name: !Sub '${AWS::StackName}-RepositoryName'
+  RepositoryArn:
+    Description: 'ECR Repository ARN.'
+    Value: !GetAtt Repository.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RepositoryArn'
+  RepositoryUri:
+    Description: 'ECR Repository URI.'
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Repository}'
+    Export:
+      Name: !Sub '${AWS::StackName}-RepositoryUri'

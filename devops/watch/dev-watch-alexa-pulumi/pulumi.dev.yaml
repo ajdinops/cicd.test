@@ -1,0 +1,10 @@
+config:
+  pulumi:autonaming:
+    mode: verbatim
+  aws:region: us-east-1
+  pagerduty:token:
+    secure: AAABAL4L240jOaYAgXoBeiRpt+LGq2iDbUqM9gmtQuz2iQEINgMTSf6x1v9+rhPWOrPwsg==
+  datadog:apiKey:
+    secure: AAABAMOSY4/10k5TaMLtcVusCnM8p++Zya91aHgDfcCNTkrui788WqAfA15Gcof4r+InqNskghug+NyhSgn8OQ==
+  datadog:appKey:
+    secure: AAABAC3DepKY0C0bbxmzWW3nV8y4baP9MS9jkEVcoGc8d3afX+ikwCicgBPpUKBgw835iLk3EifYYcq+wZMwb+VGCs267E1o

@@ -1,0 +1,887 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CodePipeline for Fargate services'
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - E2540
+        - E2541
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: 'Parent Stacks'
+        Parameters:
+          - ParentClusterStack
+          - ParentServiceStack
+          - ParentECRRepositoryStack
+          - ParentS3ArtifactBucketStack
+          - ParentAlertStack
+      - Label:
+          default: 'Optional VPC Access For Codebuild'
+        Parameters:
+          - ParentVPCStack
+          - ParentClientStack1
+          - ParentClientStack2
+          - ParentClientStack3
+          - SubnetsReach
+      - Label:
+          default: 'CodeCommit Source Parameters'
+        Parameters:
+          - CodeCommitRepo
+          - CodeCommitBranch
+      - Label:
+          default: 'GitHub Source Parameters'
+        Parameters:
+          - GitHubConnectionArn
+          - GitHubOwner
+          - GitHubRepo
+          - GitHubBranch
+      - Label:
+          default: 'S3 Source Parameters'
+        Parameters:
+          - SourceBucketName
+          - SourceObjectKey
+      - Label:
+          default: 'Validation Functions'
+        Parameters:
+          - ValidationFunction1
+          - ValidationFunction2
+          - ValidationFunction3
+      - Label:
+          default: 'Additional Parameters'
+        Parameters:
+          - CodeBuildServicePolicies
+          - CodeBuildEnvironment1Key
+          - CodeBuildEnvironment1Type
+          - CodeBuildEnvironment1Value
+          - CodeBuildEnvironment2Key
+          - CodeBuildEnvironment2Type
+          - CodeBuildEnvironment2Value
+          - CodeBuildEnvironment3Key
+          - CodeBuildEnvironment3Type
+          - CodeBuildEnvironment3Value
+          - CodeBuildEnvironment
+          - CodeBuildImageName
+          - CodeBuildComputeType
+          - CodeBuildBuildSpec
+          - CodeBuildTimeoutInMinutes
+          - LogsRetentionInDays
+Parameters:
+  ParentClusterStack:
+    Description: 'Stack name of parent Cluster stack based on base/fargate-cluster-alb.yaml template.'
+    Type: String
+  ParentServiceStack:
+    Description: 'Stack name of parent Cluster stack based on base/fargate-service-*.yaml template.'
+    Type: String
+  ParentECRRepositoryStack:
+    Description: 'Required name of parent ECR repository stack based on base/ecr-*.yaml.'
+    Type: String
+  ParentS3ArtifactBucketStack:
+    Description: 'Required stack name of parent S3 stack for CodeBuild artifacts based on base/s3.yaml template.'
+    Type: String
+  ParentAlertStack:
+    Description: 'Optional but recommended stack name of parent alert stack based on base/alert.yaml template.'
+    Type: String
+    Default: ''
+  ParentVPCStack:
+    Description: 'Optional stack name of parent VPC stack based on base/vpc-*azs.yaml template.'
+    Type: String
+    Default: ''
+  ParentClientStack1:
+    Description: 'Optional stack name of parent Client Security Group stack based on base/client-sg.yaml template to allow network access from the service to whatever uses the client security group.'
+    Type: String
+    Default: ''
+  ParentClientStack2:
+    Description: 'Optional stack name of parent Client Security Group stack based on base/client-sg.yaml template to allow network access from the service to whatever uses the client security group.'
+    Type: String
+    Default: ''
+  ParentClientStack3:
+    Description: 'Optional stack name of parent Client Security Group stack based on base/client-sg.yaml template to allow network access from the service to whatever uses the client security group.'
+    Type: String
+    Default: ''
+  SubnetsReach:
+    Description: 'Should the CodeBuild instance have direct access to the Internet or do you prefer private subnets with NAT?'
+    Type: String
+    Default: Private
+    AllowedValues:
+      - Public
+      - Private
+  CodeCommitRepo:
+    Description: 'The name of the repository where source changes are to be detected.'
+    Type: String
+    Default: ''
+  CodeCommitBranch:
+    Description: 'The name of the branch where source changes are to be detected.'
+    Type: String
+    Default: 'master'
+  GitHubConnectionArn:
+    Description: 'CodeStar connection ARN that is configured and authenticated for the GitHub provider.'
+    Type: String
+    Default: ''
+  GitHubOwner:
+    Description: 'The name of the GitHub user or organization who owns the GitHub repository.'
+    Type: String
+    Default: ''
+  GitHubRepo:
+    Description: 'The name of the repository where source changes are to be detected.'
+    Type: String
+    Default: ''
+  GitHubBranch:
+    Description: 'The name of the branch where source changes are to be detected.'
+    Type: String
+    Default: 'master'
+  SourceBucketName:
+    Description: 'Name of the S3 bucket which holds the source artifacts.'
+    Type: String
+    Default: ''
+  SourceObjectKey:
+    Description: 'Full path to source artifact. ***DO NOT PUT LEADING SLASH***'
+    Type: String
+    Default: ''
+  ValidationFunction1:
+    Description: 'Optional lambda function for validation step (pipe delimited action name and function name)'
+    Type: String
+    Default: ''
+  ValidationFunction2:
+    Description: 'Optional lambda function for validation step (pipe delimited action name and function name)'
+    Type: String
+    Default: ''
+  ValidationFunction3:
+    Description: 'Optional lambda function for validation step (pipe delimited action name and function name)'
+    Type: String
+    Default: ''
+  CodeBuildServicePolicies:
+    Description: 'Comma-delimited list of IAM managed policy ARNs to attach to the service IAM role.'
+    Type: String
+    Default: ''
+  CodeBuildEnvironment1Key:
+    Description: 'Optional environment variable 1 key for CodeBuild.'
+    Type: String
+    Default: ''
+  CodeBuildEnvironment1Type:
+    Description: 'Optional environment variable 1 type for CodeBuild.'
+    Type: String
+    Default: 'PLAINTEXT'
+    AllowedValues: ['PLAINTEXT', 'PARAMETER_STORE', 'SECRETS_MANAGER']
+  CodeBuildEnvironment1Value:
+    Description: 'Optional environment variable 1 value for CodeBuild.'
+    Type: String
+    Default: ''
+  CodeBuildEnvironment2Key:
+    Description: 'Optional environment variable 2 key for CodeBuild.'
+    Type: String
+    Default: ''
+  CodeBuildEnvironment2Type:
+    Description: 'Optional environment variable 2 type for CodeBuild.'
+    Type: String
+    Default: 'PLAINTEXT'
+    AllowedValues: ['PLAINTEXT', 'PARAMETER_STORE', 'SECRETS_MANAGER']
+  CodeBuildEnvironment2Value:
+    Description: 'Optional environment variable 2 value for CodeBuild.'
+    Type: String
+    Default: ''
+  CodeBuildEnvironment3Key:
+    Description: 'Optional environment variable 3 key for CodeBuild.'
+    Type: String
+    Default: ''
+  CodeBuildEnvironment3Type:
+    Description: 'Optional environment variable 3 type for CodeBuild.'
+    Type: String
+    Default: 'PLAINTEXT'
+    AllowedValues: ['PLAINTEXT', 'PARAMETER_STORE', 'SECRETS_MANAGER']
+  CodeBuildEnvironment3Value:
+    Description: 'Optional environment variable 3 value for CodeBuild.'
+    Type: String
+    Default: ''
+  CodeBuildEnvironment:
+    Description: 'The type of build environment to use for related builds.'
+    Type: String
+    Default: 'LINUX_CONTAINER'
+    AllowedValues: ['ARM_CONTAINER', 'LINUX_CONTAINER', 'LINUX_GPU_CONTAINER']
+  CodeBuildComputeType:
+    Description: 'This determines the number of CPU cores and memory the build environment uses.'
+    Type: String
+    Default: 'BUILD_GENERAL1_SMALL'
+    AllowedValues: ['BUILD_GENERAL1_SMALL', 'BUILD_GENERAL1_MEDIUM', 'BUILD_GENERAL1_LARGE', 'BUILD_GENERAL1_2XLARGE']
+  CodeBuildImageName:
+    Description: 'The image to use for CodeBuild.'
+    Type: String
+    Default: 'aws/codebuild/standard:7.0'
+    AllowedValues:
+      - 'aws/codebuild/standard:7.0'
+      - 'aws/codebuild/amazonlinux2-x86_64-standard:3.0'
+      - 'aws/codebuild/amazonlinux-aarch64-standard:3.0'
+      - 'aws/codebuild/amazonlinux2-aarch64-standard:2.0'
+  CodeBuildBuildSpec:
+    Description: 'The full path to the CoddBuild buildspec file.'
+    Type: String
+    Default: 'buildspec.yaml'
+  CodeBuildTimeoutInMinutes:
+    Description: 'The number of minutes for AWS CodeBuild to wait before timing out incomplete builds.'
+    Type: Number
+    Default: 60
+    MinValue: 5
+    MaxValue: 480
+  LogsRetentionInDays:
+    Description: 'Specifies the number of days you want to retain log events in the specified log group.'
+    Type: Number
+    Default: 14
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
+Conditions:
+  HasAlertTopic: !Not [!Equals [!Ref ParentAlertStack, '']]
+  HasVPC: !Not [!Equals [!Ref ParentVPCStack, '']]
+  HasClientSecurityGroup1: !Not [!Equals [!Ref ParentClientStack1, '']]
+  HasClientSecurityGroup2: !Not [!Equals [!Ref ParentClientStack2, '']]
+  HasClientSecurityGroup3: !Not [!Equals [!Ref ParentClientStack3, '']]
+  HasCodeCommit: !Not [!Equals [!Ref CodeCommitRepo, '']]
+  HasGitHub: !Not [!Equals [!Ref GitHubRepo, '']]
+  HasS3: !Not [!Equals [!Ref SourceBucketName, '']]
+  NeedEvents: !Or [Condition: HasCodeCommit, Condition: HasS3]
+  HasValidationFunction1: !Not [!Equals [!Ref ValidationFunction1, '']]
+  HasValidationFunction2: !Not [!Equals [!Ref ValidationFunction2, '']]
+  HasValidationFunction3: !Not [!Equals [!Ref ValidationFunction3, '']]
+  HasValidationFunctions: !Or [Condition: HasValidationFunction1, Condition: HasValidationFunction2, Condition: HasValidationFunction3]
+  HasCodeBuildServicePolicies: !Not [!Equals [!Ref CodeBuildServicePolicies, '']]
+  HasCodeBuildEnvironment1Key: !Not [!Equals [!Ref CodeBuildEnvironment1Key, '']]
+  HasCodeBuildEnvironment2Key: !Not [!Equals [!Ref CodeBuildEnvironment2Key, '']]
+  HasCodeBuildEnvironment3Key: !Not [!Equals [!Ref CodeBuildEnvironment3Key, '']]
+Resources:
+  LambdaLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/codebuild/${CodeBuildProject}'
+      RetentionInDays: !Ref LogsRetentionInDays
+  CodeBuildServiceRole:
+    Type: 'AWS::IAM::Role'
+    # checkov:skip=CKV_AWS_63:Ensure no IAM policies documents allow "*" as a statement's actions
+    # checkov:skip=CKV_AWS_109:Ensure IAM policies does not allow permissions management without constraints
+    # checkov:skip=CKV_AWS_111:Ensure IAM policies does not allow write access without constraints
+    Properties:
+      # Path: '/service-role/'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'codebuild.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns: !If [HasCodeBuildServicePolicies, !Split [',', !Ref CodeBuildServicePolicies], !Ref 'AWS::NoValue']
+      Policies:
+        - PolicyName: default
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource:
+                  - !Sub
+                    - 'arn:aws:s3:::${ArtifactBucketName}'
+                    - ArtifactBucketName: {'Fn::ImportValue': !Sub '${ParentS3ArtifactBucketStack}-BucketName'}
+              - Effect: Allow
+                Action:
+                  - s3:GetObject*
+                  - s3:PutObject*
+                Resource:
+                  - !Sub
+                    - 'arn:aws:s3:::${ArtifactBucketName}/*'
+                    - ArtifactBucketName: {'Fn::ImportValue': !Sub '${ParentS3ArtifactBucketStack}-BucketName'}
+              - Effect: Allow  # Allow Remote Access w/ CodeBuild breakpoint
+                Action:
+                  - ssmmessages:CreateControlChannel
+                  - ssmmessages:CreateDataChannel
+                  - ssmmessages:OpenControlChannel
+                  - ssmmessages:OpenDataChannel
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                Resource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/codebuild/*'
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/codebuild/*'
+              - Effect: Allow  # For VPC
+                Action:
+                  - ec2:CreateNetworkInterface
+                  - ec2:DeleteNetworkInterface
+                  - ec2:DescribeDhcpOptions
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeVpcs
+                Resource: '*'
+              - Effect: Allow  # For VPC
+                Action:
+                  - ec2:CreateNetworkInterfacePermission
+                Resource: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*'
+                Condition:
+                  StringEquals:
+                    ec2:AuthorizedService: codebuild.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:Encrypt
+                  - kms:RevokeGrant
+                  - kms:GenerateDataKey
+                  - kms:GenerateDataKeyWithoutPlaintext
+                  - kms:DescribeKey
+                  - kms:CreateGrant
+                  - kms:ListGrants
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchPutTestCases
+                  - codebuild:CreateReport
+                  - codebuild:CreateReportGroup
+                  - codebuild:UpdateReport
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:CompleteLayerUpload
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource:
+                  - {'Fn::ImportValue': !Sub '${ParentECRRepositoryStack}-RepositoryArn'}
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+  CodeBuildSecurityGroup:
+    Condition: HasVPC
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: !Sub '${AWS::StackName}-CodeBuild VPC Access'
+      VpcId: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: {'Fn::ImportValue': !Sub '${ParentVPCStack}-CidrBlock'}
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          FromPort: 0
+          ToPort: 0
+          CidrIp: 0.0.0.0/0
+  CodeBuildProject:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Artifacts:
+        Type: 'CODEPIPELINE'
+      Cache:
+        Type: 'NO_CACHE'
+      Environment:
+        ComputeType: !Ref CodeBuildComputeType
+        EnvironmentVariables:
+          - !If [HasCodeBuildEnvironment1Key, {Name: !Ref CodeBuildEnvironment1Key, Type: !Ref CodeBuildEnvironment1Type, Value: !Ref CodeBuildEnvironment1Value}, !Ref 'AWS::NoValue']
+          - !If [HasCodeBuildEnvironment2Key, {Name: !Ref CodeBuildEnvironment2Key, Type: !Ref CodeBuildEnvironment2Type, Value: !Ref CodeBuildEnvironment2Value}, !Ref 'AWS::NoValue']
+          - !If [HasCodeBuildEnvironment3Key, {Name: !Ref CodeBuildEnvironment3Key, Type: !Ref CodeBuildEnvironment3Type, Value: !Ref CodeBuildEnvironment3Value}, !Ref 'AWS::NoValue']
+          - !If [HasVPC, {Name: VPC_ID, Value: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}}, !Ref 'AWS::NoValue']
+          - Name: ECR_REPOSITORY_URI
+            Value: {'Fn::ImportValue': !Sub '${ParentECRRepositoryStack}-RepositoryUri'}
+          - Name: ECR_REPOSITORY_NAME
+            Value: {'Fn::ImportValue': !Sub '${ParentECRRepositoryStack}-RepositoryName'}
+          - Name: ARTIFACT_BUCKET
+            Value: {'Fn::ImportValue': !Sub '${ParentS3ArtifactBucketStack}-BucketName'}
+          - !If [HasS3, {Name: SOURCEBUCKETNAME, Value: !Ref SourceBucketName}, !Ref 'AWS::NoValue']
+          - !If [HasS3, {Name: SOURCEOBJECTKEY, Value: !Ref SourceObjectKey}, !Ref 'AWS::NoValue']
+          - !If [HasCodeCommit, {Name: CODECOMMITREPO, Value: !Ref CodeCommitRepo}, !Ref 'AWS::NoValue']
+          - !If [HasCodeCommit, {Name: CODECOMMITBRANCH, Value: !Ref CodeCommitBranch}, !Ref 'AWS::NoValue']
+          - !If [HasGitHub, {Name: GITHUB_REPO, Value: !Ref GitHubRepo}, !Ref 'AWS::NoValue']
+          - !If [HasGitHub, {Name: GITHUB_OWNER, Value: !Ref GitHubOwner}, !Ref 'AWS::NoValue']
+          - !If [HasGitHub, {Name: GITHUB_BRANCH, Value: !Ref GitHubBranch}, !Ref 'AWS::NoValue']
+        Image: !Ref CodeBuildImageName
+        ImagePullCredentialsType: 'CODEBUILD'
+        PrivilegedMode: true
+        Type: !Ref CodeBuildEnvironment
+      ServiceRole: !Ref CodeBuildServiceRole
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Ref CodeBuildBuildSpec
+      TimeoutInMinutes: !Ref CodeBuildTimeoutInMinutes
+      VpcConfig: !If
+        - HasVPC
+        - SecurityGroupIds:
+            - !GetAtt CodeBuildSecurityGroup.GroupId
+            - !If [HasClientSecurityGroup1, {'Fn::ImportValue': !Sub '${ParentClientStack1}-SecurityGroupId'}, !Ref 'AWS::NoValue']
+            - !If [HasClientSecurityGroup2, {'Fn::ImportValue': !Sub '${ParentClientStack2}-SecurityGroupId'}, !Ref 'AWS::NoValue']
+            - !If [HasClientSecurityGroup3, {'Fn::ImportValue': !Sub '${ParentClientStack3}-SecurityGroupId'}, !Ref 'AWS::NoValue']
+          Subnets: !Split [',', {'Fn::ImportValue': !Sub '${ParentVPCStack}-Subnets${SubnetsReach}'}]
+          VpcId: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}
+        - {}
+  CodePipelineServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      # Path: '/service-role/'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'codepipeline.amazonaws.com'
+                - 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: default
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: '*'
+                Condition:
+                  StringEqualsIfExists:
+                    iam:PassedToService:
+                      - ec2.amazonaws.com
+                      - ecs-tasks.amazonaws.com
+                      - elasticbeanstalk.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - 'autoscaling:*'
+                  - 'cloudwatch:*'
+                  - 'ec2:*'
+                  - 'elasticbeanstalk:*'
+                  - 'elasticloadbalancing:*'
+                  - 'sns:*'
+                  - 'sqs:*'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                Resource: '*'
+              - !If
+                - HasCodeCommit
+                - Effect: Allow
+                  Action:
+                    - codecommit:CancelUploadArchive
+                    - codecommit:GetBranch
+                    - codecommit:GetCommit
+                    - codecommit:GetRepository
+                    - codecommit:GetUploadArchiveStatus
+                    - codecommit:UploadArchive
+                  Resource:
+                    - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepo}'
+                - !Ref 'AWS::NoValue'
+              - Effect: Allow
+                Action:
+                  - codedeploy:CreateDeployment
+                  - codedeploy:GetApplication
+                  - codedeploy:GetApplicationRevision
+                  - codedeploy:GetDeployment
+                  - codedeploy:GetDeploymentConfig
+                  - codedeploy:RegisterApplicationRevision
+                Resource: '*'
+              - !If
+                - HasGitHub
+                - Effect: Allow
+                  Action:
+                    - codestar-connections:UseConnection
+                  Resource: !Ref GitHubConnectionArn
+                - !Ref AWS::NoValue
+              - Effect: Allow
+                Action:
+                  - devicefarm:CreateUpload
+                  - devicefarm:GetRun
+                  - devicefarm:GetUpload
+                  - devicefarm:ListDevicePools
+                  - devicefarm:ListProjects
+                  - devicefarm:ScheduleRun
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:DescribeImages
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecs:DescribeTaskDefinition
+                  - ecs:RegisterTaskDefinition
+                  - ecs:TagResource
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                Resource: '*'
+                Condition:
+                  ArnEquals:
+                    ecs:cluster: !Sub
+                      - 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}'
+                      - ClusterName: {'Fn::ImportValue': !Sub '${ParentClusterStack}-Cluster'}
+              - Effect: Allow
+                Action:
+                  - 'ecs:UpdateService'
+                Resource:
+                  - {'Fn::ImportValue': !Sub '${ParentServiceStack}-ServiceArn'}
+              - Effect: Allow
+                Action:
+                  - lambda:ListFunctions
+                Resource: '*'
+              - !If
+                - HasValidationFunctions
+                - Effect: Allow
+                  Action:
+                    - lambda:InvokeFunction
+                  Resource:
+                    - !If
+                      - HasValidationFunction1
+                      - !Sub
+                        - 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FunctionName}'
+                        - FunctionName: !Select [1, !Split ['|', !Ref ValidationFunction1]]
+                      - !Ref 'AWS::NoValue'
+                    - !If
+                      - HasValidationFunction2
+                      - !Sub
+                        - 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FunctionName}'
+                        - FunctionName: !Select [1, !Split ['|', !Ref ValidationFunction2]]
+                      - !Ref 'AWS::NoValue'
+                    - !If
+                      - HasValidationFunction3
+                      - !Sub
+                        - 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FunctionName}'
+                        - FunctionName: !Select [1, !Split ['|', !Ref ValidationFunction3]]
+                      - !Ref 'AWS::NoValue'
+                - !Ref 'AWS::NoValue'
+              - Effect: Allow
+                Action:
+                  - appconfig:GetDeployment
+                  - appconfig:StartDeployment
+                  - appconfig:StopDeployment
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - opsworks:CreateDeployment
+                  - opsworks:DescribeApps
+                  - opsworks:DescribeCommands
+                  - opsworks:DescribeDeployments
+                  - opsworks:DescribeInstances
+                  - opsworks:DescribeStacks
+                  - opsworks:UpdateApp
+                  - opsworks:UpdateStack
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - servicecatalog:ListProvisioningArtifacts
+                  - servicecatalog:CreateProvisioningArtifact
+                  - servicecatalog:DescribeProvisioningArtifact
+                  - servicecatalog:DeleteProvisioningArtifact
+                  - servicecatalog:UpdateProduct
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - states:DescribeExecution
+                  - states:DescribeStateMachine
+                  - states:StartExecution
+                Resource: '*'
+              - !If
+                - HasS3
+                - Effect: Allow
+                  Action:
+                    - s3:GetBucketAcl
+                    - s3:GetBucketLocation
+                    - s3:GetBucketVersioning
+                    - s3:ListBucket
+                  Resource:
+                    - !Sub 'arn:aws:s3:::${SourceBucketName}'
+                - !Ref 'AWS::NoValue'
+              - !If
+                - HasS3
+                - Effect: Allow
+                  Action:
+                    - s3:GetObject*
+                  Resource:
+                    - !Sub 'arn:aws:s3:::${SourceBucketName}/*'
+                - !Ref 'AWS::NoValue'
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource:
+                  - !Sub
+                    - 'arn:aws:s3:::${ArtifactBucketName}'
+                    - ArtifactBucketName: {'Fn::ImportValue': !Sub '${ParentS3ArtifactBucketStack}-BucketName'}
+              - Effect: Allow
+                Action:
+                  - s3:GetObject*
+                  - s3:PutObject*
+                Resource:
+                  - !Sub
+                    - 'arn:aws:s3:::${ArtifactBucketName}/*'
+                    - ArtifactBucketName: {'Fn::ImportValue': !Sub '${ParentS3ArtifactBucketStack}-BucketName'}
+              - Effect: Allow  # Needed for S3
+                Action:
+                  - kms:Decrypt
+                  - kms:Encrypt
+                  - kms:RevokeGrant
+                  - kms:GenerateDataKey
+                  - kms:GenerateDataKeyWithoutPlaintext
+                  - kms:DescribeKey
+                  - kms:CreateGrant
+                  - kms:ListGrants
+                Resource: '*'
+  Pipeline:
+    Type: 'AWS::CodePipeline::Pipeline'
+    Properties:
+      ExecutionMode: SUPERSEDED
+      PipelineType: V1
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: {'Fn::ImportValue': !Sub '${ParentS3ArtifactBucketStack}-BucketName'}
+      Stages:
+        - !If
+          - HasCodeCommit
+          - Name: Source
+            Actions:
+              - Name: Source
+                InputArtifacts: []
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Version: 1
+                  Provider: CodeCommit
+                Configuration:
+                  RepositoryName: !Ref CodeCommitRepo
+                  BranchName: !Ref CodeCommitBranch
+                  PollForSourceChanges: false
+                OutputArtifacts:
+                  - Name: SourceArtifact
+                RunOrder: 1
+          - !Ref 'AWS::NoValue'
+        - !If
+          - HasGitHub
+          - Name: Source
+            Actions:
+              - Name: Source
+                InputArtifacts: []
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: 1
+                Configuration:
+                  ConnectionArn: !Ref GitHubConnectionArn
+                  FullRepositoryId: !Sub '${GitHubOwner}/${GitHubRepo}'
+                  BranchName: !Ref GitHubBranch
+                OutputArtifacts:
+                  - Name: SourceArtifact
+                RunOrder: 1
+          - !Ref 'AWS::NoValue'
+        - !If
+          - HasS3
+          - Name: Source
+            Actions:
+              - Name: Source
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: S3
+                  Version: 1
+                Configuration:
+                  S3Bucket: !Ref SourceBucketName
+                  S3ObjectKey: !Ref SourceObjectKey
+                  PollForSourceChanges: false
+                OutputArtifacts:
+                  - Name: SourceArtifact
+                RunOrder: 1
+          - !Ref 'AWS::NoValue'
+        - Name: Build
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: BuildArtifact
+              RunOrder: 1
+        - !If
+          - HasValidationFunctions
+          - Name: Validate
+            Actions:
+              - !If
+                - HasValidationFunction1
+                - Name: !Select [0, !Split ['|', !Ref ValidationFunction1]]
+                  ActionTypeId:
+                    Category: Invoke
+                    Owner: AWS
+                    Provider: Lambda
+                    Version: 1
+                  Configuration:
+                    FunctionName: !Select [1, !Split ['|', !Ref ValidationFunction1]]
+                  InputArtifacts:
+                    - Name: BuildArtifact
+                  RunOrder: 1
+                - !Ref 'AWS::NoValue'
+              - !If
+                - HasValidationFunction2
+                - Name: !Select [0, !Split ['|', !Ref ValidationFunction2]]
+                  ActionTypeId:
+                    Category: Invoke
+                    Owner: AWS
+                    Provider: Lambda
+                    Version: 1
+                  Configuration:
+                    FunctionName: !Select [1, !Split ['|', !Ref ValidationFunction2]]
+                  InputArtifacts:
+                    - Name: BuildArtifact
+                  RunOrder: 1
+                - !Ref 'AWS::NoValue'
+              - !If
+                - HasValidationFunction3
+                - Name: !Select [0, !Split ['|', !Ref ValidationFunction3]]
+                  ActionTypeId:
+                    Category: Invoke
+                    Owner: AWS
+                    Provider: Lambda
+                    Version: 1
+                  Configuration:
+                    FunctionName: !Select [1, !Split ['|', !Ref ValidationFunction3]]
+                  InputArtifacts:
+                    - Name: BuildArtifact
+                  RunOrder: 1
+                - !Ref 'AWS::NoValue'
+          - !Ref 'AWS::NoValue'
+        - Name: Deploy
+          Actions:
+            - Name: Deploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: ECS
+                Version: 1
+              Configuration:
+                ClusterName: {'Fn::ImportValue': !Sub '${ParentClusterStack}-Cluster'}
+                ServiceName: {'Fn::ImportValue': !Sub '${ParentServiceStack}-ServiceArn'}
+                FileName: imagedefinitions.json
+              InputArtifacts:
+                - Name: BuildArtifact
+              RunOrder: 1
+  PipelineNotificationRule:
+    Condition: HasAlertTopic
+    Type: 'AWS::CodeStarNotifications::NotificationRule'
+    Properties:
+      Name: !Sub '${AWS::StackName}'
+      DetailType: 'FULL'
+      Resource: !Sub 'arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}'
+      EventTypeIds:
+        - codepipeline-pipeline-pipeline-execution-failed
+        - codepipeline-pipeline-pipeline-execution-canceled
+        - codepipeline-pipeline-pipeline-execution-started
+        - codepipeline-pipeline-pipeline-execution-resumed
+        - codepipeline-pipeline-pipeline-execution-succeeded
+        - codepipeline-pipeline-pipeline-execution-superseded
+      Targets:
+        - TargetType: SNS
+          TargetAddress: {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+  CloudWatchEventRole:
+    Condition: NeedEvents
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+  CloudWatchEventRolePolicy:
+    Condition: NeedEvents
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: cwe-pipeline-execution
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: codepipeline:StartPipelineExecution
+            Resource: !Sub 'arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}'
+      Roles:
+        - !Ref CloudWatchEventRole
+  CloudWatchCodeCommitEventRule:
+    Condition: HasCodeCommit
+    Type: 'AWS::Events::Rule'
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - 'CodeCommit Repository State Change'
+        resources:
+          - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepo}'
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !Ref CodeCommitBranch
+      Targets:
+        - Arn: !Sub 'arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}'
+          RoleArn: !GetAtt CloudWatchEventRole.Arn
+          Id: codepipeline-AppPipeline
+  CloudWatchS3EventRule:
+    Condition: HasS3
+    Type: 'AWS::Events::Rule'
+    Properties:
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - 'AWS API Call via CloudTrail'
+        detail:
+          eventSource:
+            - s3.amazonaws.com
+          eventName:
+            - CopyObject
+            - PutObject
+            - CompleteMultipartUpload
+          requestParameters:
+            bucketName:
+              - !Ref SourceBucketName
+            key:
+              - !Ref SourceObjectKey
+      Targets:
+        - Arn: !Sub 'arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}'
+          RoleArn: !GetAtt CloudWatchEventRole.Arn
+          Id: codepipeline-AppPipeline
+Outputs:
+  TemplateID:
+    Description: 'Template Id.'
+    Value: 'base/fargate-ecs-service-pipeline.yaml'
+  TemplateVersion:
+    Description: 'Template Version.'
+    Value: '__VERSION__'
+  StackName:
+    Description: 'Stack name.'
+    Value: !Sub '${AWS::StackName}'
+  PipelineUrl:
+    Value: !Sub https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${Pipeline}

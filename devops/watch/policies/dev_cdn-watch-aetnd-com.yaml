@@ -1,0 +1,14 @@
+---
+Version: '2012-10-17'
+Id: S3SecureTransportPolicy
+Statement:
+  - Sid: ForceSSLOnlyAccess
+    Effect: Deny
+    Principal: '*'
+    Action: s3:*
+    Resource:
+      - bucket_arn/*
+      - bucket_arn
+    Condition:
+      Bool:
+        aws:SecureTransport: 'false'
