@@ -56,7 +56,7 @@ jobs:
           RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/cicd-pipeline-test/dev/deployments" \
             -H "Authorization: token ${{ secrets.PULUMI_ACCESS_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "$(jq -n --arg stackName '${{ secrets.STACK_NAME }}' \
+            -d "$(jq -n --arg stackName '${{ secrets.ALEXA_STACK_NAME }}' \
               '{
                 "operation": "preview",
                 "sourceContext": {
@@ -109,7 +109,7 @@ jobs:
           RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/cicd-pipeline-test/dev/deployments" \
             -H "Authorization: token ${{ secrets.PULUMI_ACCESS_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "$(jq -n --arg stackName '${{ secrets.STACK_NAME }}' \
+            -d "$(jq -n --arg stackName '${{ secrets.ALEXA_STACK_NAME }}' \
               '{
                 "operation": "update",
                 "sourceContext": {
