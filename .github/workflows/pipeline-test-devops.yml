@@ -1,10 +1,15 @@
 name: GitHub Actions Demo
 run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
 on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+    branches:
+      - '*'
   push:
     branches:
-      - main
-      - dev      
+      - '*'
 jobs:
   # Explore-GitHub-Actions:
   #   runs-on: ubuntu-latest
@@ -51,27 +56,28 @@ jobs:
 
       # Step 5: Trigger Pulumi Deployment
       - name: Trigger Pulumi Preview
+        if: github.event.pull_request.base.ref == 'qa' && github.event.pull_request.head.ref == 'dev'
         id: preview
         run: |
-          RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/cicd-pipeline-test/dev/deployments" \
+          RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/watch-alexa/dev/deployments" \
             -H "Authorization: token ${{ secrets.PULUMI_ACCESS_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "$(jq -n --arg stackName '${{ secrets.STACK_NAME }}' \
+            -d "$(jq -n --arg stackName '${{ secrets.ALEXA_STACK_NAME }}' \
               '{
                 "operation": "preview",
                 "sourceContext": {
                   "git": {
-                    "repoDir": "devops/dev-watch-alexa-pulumi",
+                    "repoDir": "devops/watch/dev-watch-alexa-pulumi",
                     "branch": "dev"
                   }
-                },
-                "operationContext": {
-                  "preRunCommands": [
-                    "pulumi stack select \($stackName)",
-                    "pulumi config refresh --force",
-                    "pulumi config refresh --force"
-                  ]
                 }
+                # "operationContext": {
+                #   "preRunCommands": [
+                #     "pulumi stack select \($stackName)",
+                #     "pulumi config refresh --force",
+                #     "pulumi config refresh --force"
+                #   ]
+                # }
               }')")
           
           DEPLOYMENT_ID=$(echo "$RESPONSE" | jq -r '.id')
@@ -79,6 +85,7 @@ jobs:
 
       # Step 6: Check Deployment Status 1
       - name: Monitor Pulumi Deployment
+        if: github.event.pull_request.base.ref == 'qa' && github.event.pull_request.head.ref == 'dev'
         run: |
           STATUS="pending"
           while [[ "$STATUS" == "pending" || "$STATUS" == "running" ]]; do
@@ -86,7 +93,7 @@ jobs:
             RESPONSE=$(curl -s -X GET \
               -H "Authorization: token ${{ secrets.PULUMI_ACCESS_TOKEN }}" \
               -H "Content-Type: application/json" \
-              --location "https://api.pulumi.com/api/stacks/aenetworks/cicd-pipeline-test/dev/deployments/$DEPLOYMENT_ID")
+              --location "https://api.pulumi.com/api/stacks/aenetworks/watch-alexa/dev/deployments/$DEPLOYMENT_ID")
             STATUS=$(echo "$RESPONSE" | jq -r '.status')
             echo "Current Status: $STATUS"
           done
@@ -103,27 +110,27 @@ jobs:
 
       # Step 7: Trigger Pulumi Deployment
       - name: Trigger Pulumi Update
-        if: env.DEPLOYMENT_STATUS == 'succeeded'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/qa') && env.DEPLOYMENT_STATUS == 'succeeded'
         id: update
         run: |
-          RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/cicd-pipeline-test/dev/deployments" \
+          RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/watch-alexa/dev/deployments" \
             -H "Authorization: token ${{ secrets.PULUMI_ACCESS_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "$(jq -n --arg stackName '${{ secrets.STACK_NAME }}' \
+            -d "$(jq -n --arg stackName '${{ secrets.ALEXA_STACK_NAME }}' \
               '{
                 "operation": "update",
                 "sourceContext": {
                   "git": {
-                    "repoDir": "devops/dev-watch-alexa-pulumi",
+                    "repoDir": "devops/watch/dev-watch-alexa-pulumi",
                     "branch": "dev"
                   }
-                },
-                "operationContext": {
-                  "preRunCommands": [
-                    "pulumi stack select \($stackName)",
-                    "pulumi config refresh --force",
-                    "pulumi config refresh --force"
-                  ]
                 }
+                # "operationContext": {
+                #   "preRunCommands": [
+                #     "pulumi stack select \($stackName)",
+                #     "pulumi config refresh --force",
+                #     "pulumi config refresh --force"
+                #   ]
+                # }
               }')")
      
