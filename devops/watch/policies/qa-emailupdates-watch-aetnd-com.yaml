@@ -1,0 +1,38 @@
+---
+Version: '2012-10-17'
+Id: ''
+Statement:
+  - Sid: ForceSSLOnlyAccess
+    Effect: Deny
+    Principal: '*'
+    Action: s3:*
+    Resource:
+      - bucket_arn
+      - bucket_arn/*
+    Condition:
+      Bool:
+        aws:SecureTransport: 'false'
+  - Sid: Allow Ragnaroknyc vendor list bucket
+    Effect: Allow
+    Principal:
+      AWS: arn:aws:iam::187212258257:root
+    Action: s3:Listbucket
+    Resource: bucket_arn
+  - Sid: Allow Ragnaroknyc vendor write object
+    Effect: Allow
+    Principal:
+      AWS: arn:aws:iam::187212258257:root
+    Action: s3:PutObject
+    Resource: bucket_arn/*
+    Condition:
+      StringEquals:
+        s3:x-amz-acl: bucket-owner-full-control
+  - Sid: Allow Ragnaroknyc vendor read object
+    Effect: Allow
+    Principal:
+      AWS: arn:aws:iam::187212258257:root
+    Action:
+      - s3:GetObject*
+      - s3:PutObjectAcl
+      - s3:PutObjectVersionAcl
+    Resource: bucket_arn/*

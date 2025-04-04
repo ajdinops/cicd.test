@@ -1,0 +1,40 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'State: Security group template'
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: 'Parent Stacks'
+        Parameters:
+          - ParentVPCStack
+Parameters:
+  ParentVPCStack:
+    Description: 'Stack name of parent VPC stack based on base/vpc-*azs.yaml template.'
+    Type: String
+Resources:
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: !Ref 'AWS::StackName'
+      VpcId: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}
+Outputs:
+  TemplateID:
+    Description: 'Template Id.'
+    Value: 'base/sg.yaml'
+  TemplateVersion:
+    Description: 'Template Version.'
+    Value: '__VERSION__'
+  StackName:
+    Description: 'Stack name.'
+    Value: !Sub '${AWS::StackName}'
+  GroupId:
+    Description: 'The ID of the security group.'
+    Value: !GetAtt SecurityGroup.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupId'
+  VpcId:
+    Description: 'The ID of the VPC for the security group.'
+    Value: !GetAtt SecurityGroup.VpcId
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupVpcId'
