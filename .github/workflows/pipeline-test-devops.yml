@@ -61,7 +61,7 @@ jobs:
                 "operation": "preview",
                 "sourceContext": {
                   "git": {
-                    "repoDir": "devops/dev-watch-alexa-pulumi",
+                    "repoDir": "devops/watch/dev-watch-alexa-pulumi",
                     "branch": "dev"
                   }
                 },
@@ -114,7 +114,7 @@ jobs:
                 "operation": "update",
                 "sourceContext": {
                   "git": {
-                    "repoDir": "devops/dev-watch-alexa-pulumi",
+                    "repoDir": "devops/watch/dev-watch-alexa-pulumi",
                     "branch": "dev"
                   }
                 },
