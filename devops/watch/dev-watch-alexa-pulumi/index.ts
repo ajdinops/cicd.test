@@ -2,14 +2,15 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as pagerduty from "@pulumi/pagerduty";
 import * as datadog from "@pulumi/datadog";
+import { CreateUltraDNS } from "./ultradns/index";
 
 // UltraDNS Record
-const cnameDevAlexaWatchAetndCom = new aws.route53.Record("cname-dev-alexa-watch-aetnd-com", {
-    zoneId: "aetnd.com",
+const cnameDevAlexaWatchAetndCom = CreateUltraDNS("cname-dev-alexa-watch-aetnd-com", {
+    zone: "aetnd.com",
     name: "dev-alexa.watch.aetnd.com.",
     type: "CNAME",
     ttl: 86400,
-    records: ["http2.aenet.map.fastly.net."],
+    rdata: ["http2.aenet.map.fastly.net."],
 });
 
 // PagerDuty Escalation Policy

@@ -1,12 +1,14 @@
 {
   "devDependencies": {
-    "@types/node": "^22.14.0"
+    "@types/node": "^22.14.0",
+    "@types/uuid": "^10.0.0"
   },
   "dependencies": {
     "@pulumi/aws": "^6.75.0",
     "@pulumi/datadog": "^4.48.0",
     "@pulumi/pagerduty": "^4.22.1",
     "@pulumi/pulumi": "^3.160.0",
-    "pulumi": "^0.0.1"
+    "axios": "^1.8.4",
+    "uuid": "^11.1.0"
   }
 }
