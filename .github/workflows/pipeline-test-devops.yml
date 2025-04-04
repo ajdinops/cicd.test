@@ -110,7 +110,7 @@ jobs:
 
       # Step 7: Trigger Pulumi Deployment
       - name: Trigger Pulumi Update
-        if: github.ref == 'refs/heads/dev' ||  (github.event.head_commit.message == 'Merge branch '\''dev'\'' into qa' && env.DEPLOYMENT_STATUS == 'succeeded')
+        if: github.ref == 'refs/heads/dev' ||  (github.event.head_commit.message == 'Merge branch ''dev'' into qa' && env.DEPLOYMENT_STATUS == 'succeeded')
         id: update
         run: |
           RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/watch-alexa/dev/deployments" \
