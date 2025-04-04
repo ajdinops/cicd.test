@@ -1,10 +1,15 @@
 name: GitHub Actions Demo
 run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
 on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+    branches:
+      - '*'
   push:
     branches:
-      - main
-      - dev      
+      - '*'
 jobs:
   # Explore-GitHub-Actions:
   #   runs-on: ubuntu-latest
@@ -51,7 +56,7 @@ jobs:
 
       # Step 5: Trigger Pulumi Deployment
       - name: Trigger Pulumi Preview
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/qa'
+        if: github.event.pull_request.base.ref == 'qa' && github.event.pull_request.head.ref == 'dev'
         id: preview
         run: |
           RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/watch-alexa/dev/deployments" \
@@ -80,7 +85,7 @@ jobs:
 
       # Step 6: Check Deployment Status 1
       - name: Monitor Pulumi Deployment
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/qa'
+        if: github.event.pull_request.base.ref == 'qa' && github.event.pull_request.head.ref == 'dev'
         run: |
           STATUS="pending"
           while [[ "$STATUS" == "pending" || "$STATUS" == "running" ]]; do
