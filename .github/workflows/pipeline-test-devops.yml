@@ -53,10 +53,10 @@ jobs:
       - name: Trigger Pulumi Preview
         id: preview
         run: |
-          RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/cicd-pipeline-test/dev/deployments" \
+          RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/watch-alexa/dev/deployments" \
             -H "Authorization: token ${{ secrets.PULUMI_ACCESS_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "$(jq -n --arg stackName '${{ secrets.STACK_NAME }}' \
+            -d "$(jq -n --arg stackName '${{ secrets.ALEXA_STACK_NAME }}' \
               '{
                 "operation": "preview",
                 "sourceContext": {
@@ -86,7 +86,7 @@ jobs:
             RESPONSE=$(curl -s -X GET \
               -H "Authorization: token ${{ secrets.PULUMI_ACCESS_TOKEN }}" \
               -H "Content-Type: application/json" \
-              --location "https://api.pulumi.com/api/stacks/aenetworks/cicd-pipeline-test/dev/deployments/$DEPLOYMENT_ID")
+              --location "https://api.pulumi.com/api/stacks/aenetworks/watch-alexa/dev/deployments/$DEPLOYMENT_ID")
             STATUS=$(echo "$RESPONSE" | jq -r '.status')
             echo "Current Status: $STATUS"
           done
@@ -106,10 +106,10 @@ jobs:
         if: env.DEPLOYMENT_STATUS == 'succeeded'
         id: update
         run: |
-          RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/cicd-pipeline-test/dev/deployments" \
+          RESPONSE=$(curl -s -X POST "https://api.pulumi.com/api/stacks/aenetworks/watch-alexa/dev/deployments" \
             -H "Authorization: token ${{ secrets.PULUMI_ACCESS_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "$(jq -n --arg stackName '${{ secrets.STACK_NAME }}' \
+            -d "$(jq -n --arg stackName '${{ secrets.ALEXA_STACK_NAME }}' \
               '{
                 "operation": "update",
                 "sourceContext": {
